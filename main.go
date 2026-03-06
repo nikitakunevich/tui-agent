@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -25,6 +26,7 @@ func main() {
 	model := flag.String("model", "", "Model name (default: gpt-4o for openai, claude-sonnet-4-20250514 for anthropic)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	baseURL := flag.String("base-url", "", "Base URL for OpenAI-compatible API")
+	prompt := flag.String("prompt", "", "Run non-interactively with this prompt (skip TUI)")
 	flag.Parse()
 
 	cleanup, err := logging.Setup("tui-agent.log", *debug)
@@ -84,6 +86,17 @@ func main() {
 	// Initialize agent
 	systemPrompt := "You are a helpful terminal assistant. You can execute bash commands using the bash tool. Be concise in your responses."
 	a := agent.New(llmProvider, registry, systemPrompt)
+
+	// Non-interactive mode
+	if *prompt != "" {
+		result, err := a.Run(context.Background(), *prompt)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(result)
+		return
+	}
 
 	// Run TUI
 	p := tea.NewProgram(ui.New(a), tea.WithAltScreen())
