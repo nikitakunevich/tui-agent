@@ -62,6 +62,10 @@ tui-agent/
 - Config via env: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_BASE_URL`, `MODEL_NAME`
 - Module docs in `docs/*.md` — update when adding/changing modules
 
+## Workflow: Commits
+- Commit after each completed change (feature, fix, refactor) — don't batch unrelated changes
+- Run tests before committing
+
 ## Workflow: Task Artifacts
 When working on a big feature that requires fetching docs, API references, or other artifacts:
 1. Save them in `.agent/tasks-artifacts/<task_name>/` as temp files
