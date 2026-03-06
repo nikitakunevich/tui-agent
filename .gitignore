@@ -1,0 +1,7 @@
+tui-agent
+tui-agent.log
+*.log
+.DS_Store
+.env
+.agent/
+.claude/
