@@ -82,9 +82,10 @@ func main() {
 	// Initialize tools
 	registry := tools.NewRegistry()
 	registry.Register(tools.NewBashTool())
+	registry.Register(tools.NewReadFileTool())
 
 	// Initialize agent
-	systemPrompt := "You are a helpful terminal assistant. You can execute bash commands using the bash tool. Be concise in your responses."
+	systemPrompt := "You are a helpful terminal assistant. You can execute bash commands using the bash tool and read files using the read_file tool. Be concise in your responses."
 	a := agent.New(llmProvider, registry, systemPrompt)
 
 	// Non-interactive mode
