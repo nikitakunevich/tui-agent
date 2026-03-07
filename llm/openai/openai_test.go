@@ -75,6 +75,21 @@ func TestToOpenAIMessage_AssistantToolCallsSerialization(t *testing.T) {
 }
 
 
+func TestToOpenAIMessage_ToolResultEmptyContent(t *testing.T) {
+	// When a tool returns empty output, Content is "". The library's omitempty
+	// tag omits it, resulting in "content": null which OpenAI rejects with 400.
+	msg := llm.Message{Role: llm.RoleTool, Content: "", ToolCallID: "call_123"}
+	got := toOpenAIMessage(msg)
+	b, err := json.Marshal(got)
+	assert.NoError(t, err)
+	var raw map[string]json.RawMessage
+	err = json.Unmarshal(b, &raw)
+	assert.NoError(t, err)
+	contentVal, hasContent := raw["content"]
+	assert.True(t, hasContent, "tool message with empty content must have 'content' field in JSON")
+	assert.NotEqual(t, "null", string(contentVal), "content must not be null")
+}
+
 func TestFromOpenAIChoice_TextResponse(t *testing.T) {
 	choice := openai.ChatCompletionChoice{
 		Message: openai.ChatCompletionMessage{

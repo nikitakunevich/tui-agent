@@ -98,14 +98,14 @@ func toOpenAIMessage(m llm.Message) openai.ChatCompletionMessage {
 				},
 			}
 		}
-		// Work around go-openai's omitempty on Content: when Content is ""
-		// the field is omitted from JSON, causing OpenAI to receive null
-		// and reject with 400 "expected a string, got null". Using
-		// MultiContent forces the library to emit a non-null content field.
-		if msg.Content == "" {
-			msg.MultiContent = []openai.ChatMessagePart{
-				{Type: openai.ChatMessagePartTypeText, Text: ""},
-			}
+	}
+	// Work around go-openai's omitempty on Content: when Content is ""
+	// the field is omitted from JSON, causing OpenAI to receive null
+	// and reject with 400 "expected a string, got null". Using
+	// MultiContent forces the library to emit a non-null content field.
+	if msg.Content == "" {
+		msg.MultiContent = []openai.ChatMessagePart{
+			{Type: openai.ChatMessagePartTypeText, Text: ""},
 		}
 	}
 	return msg
