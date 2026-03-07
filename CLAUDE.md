@@ -68,7 +68,7 @@ tui-agent/
 
 ## Workflow: Task Artifacts
 When working on a big feature that requires fetching docs, API references, or other artifacts:
-1. Save them in `.agent/tasks-artifacts/<task_name>/` as temp files
+1. Save them in `tasks-artifacts/<task_name>/` as temp files
 2. Use these to resume work if interrupted
 3. Delete the artifacts directory after the feature is validated and complete
-4. `.agent/` is gitignored
+4. `tasks-artifacts/` is gitignored

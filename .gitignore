@@ -3,5 +3,5 @@ tui-agent.log
 *.log
 .DS_Store
 .env
-.agent/
+tasks-artifacts/
 .claude/
