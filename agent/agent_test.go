@@ -122,6 +122,98 @@ func TestAgentMaxIterations(t *testing.T) {
 	assert.Equal(t, 3, provider.calls)
 }
 
+func TestOnToolEventCallback(t *testing.T) {
+	provider := &mockProvider{
+		responses: []*llm.ChatResponse{
+			{
+				StopReason: "tool_use",
+				ToolCalls: []llm.ToolCall{
+					{ID: "call_1", Name: "echo", Arguments: `{"text":"hello"}`},
+				},
+			},
+			{Content: "done", StopReason: "end_turn"},
+		},
+	}
+	registry := tools.NewRegistry()
+	registry.Register(&echoTool{})
+	a := New(provider, registry, "")
+
+	var events []ToolEvent
+	a.OnToolEvent = func(e ToolEvent) {
+		events = append(events, e)
+	}
+
+	_, err := a.Run(context.Background(), "test")
+	require.NoError(t, err)
+
+	require.Len(t, events, 2)
+	// start event
+	assert.Equal(t, "start", events[0].Type)
+	assert.Equal(t, "echo", events[0].Name)
+	assert.Equal(t, `{"text":"hello"}`, events[0].Arguments)
+	assert.Empty(t, events[0].Result)
+	// end event
+	assert.Equal(t, "end", events[1].Type)
+	assert.Equal(t, "echo", events[1].Name)
+	assert.Equal(t, `{"text":"hello"}`, events[1].Arguments)
+	assert.Equal(t, "hello", events[1].Result)
+}
+
+func TestOnToolEventMultipleTools(t *testing.T) {
+	provider := &mockProvider{
+		responses: []*llm.ChatResponse{
+			{
+				StopReason: "tool_use",
+				ToolCalls: []llm.ToolCall{
+					{ID: "call_1", Name: "echo", Arguments: `{"text":"a"}`},
+					{ID: "call_2", Name: "echo", Arguments: `{"text":"b"}`},
+				},
+			},
+			{Content: "done", StopReason: "end_turn"},
+		},
+	}
+	registry := tools.NewRegistry()
+	registry.Register(&echoTool{})
+	a := New(provider, registry, "")
+
+	var events []ToolEvent
+	a.OnToolEvent = func(e ToolEvent) {
+		events = append(events, e)
+	}
+
+	_, err := a.Run(context.Background(), "test")
+	require.NoError(t, err)
+
+	require.Len(t, events, 4) // start+end for each tool call
+	assert.Equal(t, "start", events[0].Type)
+	assert.Equal(t, "end", events[1].Type)
+	assert.Equal(t, "a", events[1].Result)
+	assert.Equal(t, "start", events[2].Type)
+	assert.Equal(t, "end", events[3].Type)
+	assert.Equal(t, "b", events[3].Result)
+}
+
+func TestOnToolEventNilCallbackSafe(t *testing.T) {
+	provider := &mockProvider{
+		responses: []*llm.ChatResponse{
+			{
+				StopReason: "tool_use",
+				ToolCalls: []llm.ToolCall{
+					{ID: "call_1", Name: "echo", Arguments: `{"text":"x"}`},
+				},
+			},
+			{Content: "done", StopReason: "end_turn"},
+		},
+	}
+	registry := tools.NewRegistry()
+	registry.Register(&echoTool{})
+	a := New(provider, registry, "")
+	// OnToolEvent is nil — should not panic
+	result, err := a.Run(context.Background(), "test")
+	require.NoError(t, err)
+	assert.Equal(t, "done", result)
+}
+
 func TestAgentWithSystemPrompt(t *testing.T) {
 	provider := &mockProvider{
 		responses: []*llm.ChatResponse{

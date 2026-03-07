@@ -37,9 +37,13 @@ type agentResponseMsg struct {
 	err     error
 }
 
+// toolEventMsg wraps a tool event from the agent loop.
+type toolEventMsg agent.ToolEvent
+
 // Model is the Bubble Tea model for the TUI.
 type Model struct {
 	agent     *agent.Agent
+	program   *tea.Program
 	messages  []chatMessage
 	input     textinput.Model
 	viewport  viewport.Model
@@ -72,7 +76,15 @@ func New(a *agent.Agent) Model {
 	}
 }
 
-func (m Model) Init() tea.Cmd {
+// SetProgram stores the tea.Program reference and wires the agent tool event callback.
+func (m *Model) SetProgram(p *tea.Program) {
+	m.program = p
+	m.agent.OnToolEvent = func(e agent.ToolEvent) {
+		p.Send(toolEventMsg(e))
+	}
+}
+
+func (m *Model) Init() tea.Cmd {
 	return tea.Batch(
 		textinput.Blink,
 		m.spinner.Tick,
@@ -80,7 +92,7 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -126,6 +138,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case fireworksDoneMsg:
 		m.showFireworks = false
 
+	case toolEventMsg:
+		m.messages = append(m.messages, chatMessage{role: "tool", content: formatToolEvent(agent.ToolEvent(msg))})
+		m.updateViewport()
+
 	case agentResponseMsg:
 		m.waiting = false
 		if msg.err != nil {
@@ -154,7 +170,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m Model) View() string {
+func (m *Model) View() string {
 	if !m.ready {
 		return "Initializing..."
 	}
@@ -215,11 +231,33 @@ func (m *Model) renderMessages() string {
 			line = userStyle.Render("You: ") + msg.content
 		case "assistant":
 			line = assistantStyle.Render("Agent: ") + msg.content
+		case "tool":
+			line = dimStyle.Render(msg.content)
 		case "error":
 			line = errorStyle.Render(fmt.Sprintf("Error: %s", msg.content))
 		}
+		// Tool messages get less vertical spacing
 		b.WriteString(wrapStyle.Render(line))
-		b.WriteString("\n\n")
+		if msg.role == "tool" {
+			b.WriteString("\n")
+		} else {
+			b.WriteString("\n\n")
+		}
 	}
 	return b.String()
+}
+
+func formatToolEvent(e agent.ToolEvent) string {
+	switch e.Type {
+	case "start":
+		args := e.Arguments
+		if len(args) > 200 {
+			args = args[:200] + "..."
+		}
+		return fmt.Sprintf("  ▶ %s: %s", e.Name, args)
+	case "end":
+		return fmt.Sprintf("  ✓ %s done (%d chars)", e.Name, len(e.Result))
+	default:
+		return fmt.Sprintf("  ? %s: unknown event", e.Name)
+	}
 }

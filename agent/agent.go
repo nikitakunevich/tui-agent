@@ -12,12 +12,21 @@ import (
 
 const defaultMaxIterations = 10
 
+// ToolEvent represents a tool execution event (start or end).
+type ToolEvent struct {
+	Type      string // "start" or "end"
+	Name      string
+	Arguments string
+	Result    string
+}
+
 // Agent orchestrates the LLM tool-use loop.
 type Agent struct {
 	provider      llm.Provider
 	registry      *tools.Registry
 	messages      []llm.Message
 	maxIterations int
+	OnToolEvent   func(ToolEvent)
 }
 
 // New creates a new Agent.
@@ -71,7 +80,13 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (string, error) {
 		// Execute each tool call and append results
 		for _, tc := range resp.ToolCalls {
 			slog.Info("executing tool", "name", tc.Name, "id", tc.ID)
+			if a.OnToolEvent != nil {
+				a.OnToolEvent(ToolEvent{Type: "start", Name: tc.Name, Arguments: tc.Arguments})
+			}
 			result := a.registry.Execute(ctx, tc.Name, json.RawMessage(tc.Arguments))
+			if a.OnToolEvent != nil {
+				a.OnToolEvent(ToolEvent{Type: "end", Name: tc.Name, Arguments: tc.Arguments, Result: result})
+			}
 			a.messages = append(a.messages, llm.Message{
 				Role:       llm.RoleTool,
 				Content:    result,

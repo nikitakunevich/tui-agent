@@ -99,7 +99,9 @@ func main() {
 	}
 
 	// Run TUI
-	p := tea.NewProgram(ui.New(a), tea.WithAltScreen())
+	uiModel := ui.New(a)
+	p := tea.NewProgram(&uiModel, tea.WithAltScreen())
+	uiModel.SetProgram(p)
 	if _, err := p.Run(); err != nil {
 		slog.Error("TUI error", "error", err)
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
