@@ -10,7 +10,30 @@
 - [x] Module documentation in docs/
 
 ## TODO
+
+Theme: "works" → "trustworthy and inspectable"
+
+### P1: Tool confirmation UI
+- [ ] Before running bash, show command and ask approve/deny
+- Highest leverage for trust and safety
+
+### P2: Show tool activity in chat
+- [ ] "Running bash: ls -la" messages in chat
+- [ ] Collapsible or dimmed tool output
+
+### P3: Refactor agent state/session model
+- [ ] Avoid hidden mutable conversation state in `Agent`
+
+### P4: Streaming
 - [ ] Streaming responses
-- [ ] Tool confirmation UI
-- [ ] Conversation persistence (save/load)
-- [ ] More tools (file read/write, HTTP, etc.)
+
+### P5: Persistence
+- [ ] Save/load chat sessions
+
+### Minor Polish
+- [ ] Sort tool names in `Registry.List()` / `ToToolDefs()` for deterministic behavior
+- [ ] Show current provider/model in TUI title/status
+- [ ] Add `/clear` or `/reset` command
+- [ ] Add file read tool before file write tool
+- [ ] Consider limiting bash environment / cwd explicitly
+- [ ] More tools (HTTP, etc.)
