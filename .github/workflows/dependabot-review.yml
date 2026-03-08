@@ -1,0 +1,147 @@
+name: Claude Dependency Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  claude-review:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          DIFF=$(gh pr diff ${{ github.event.pull_request.number }} --repo ${{ github.repository }})
+          echo "diff<<EODIFF" >> "$GITHUB_OUTPUT"
+          echo "$DIFF" >> "$GITHUB_OUTPUT"
+          echo "EODIFF" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get dependency changelog
+        id: changelog
+        run: |
+          # Extract module name and versions from PR title
+          # Dependabot titles look like: "deps: bump github.com/foo/bar from 1.0.0 to 1.1.0"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+
+          MODULE=$(echo "$PR_TITLE" | grep -oP '(?:bump |update )\K[^\s]+' || echo "unknown")
+          OLD_VER=$(echo "$PR_TITLE" | grep -oP 'from \K[^\s]+' || echo "unknown")
+          NEW_VER=$(echo "$PR_TITLE" | grep -oP 'to \K[^\s]+' || echo "unknown")
+
+          echo "module=$MODULE" >> "$GITHUB_OUTPUT"
+          echo "old_version=$OLD_VER" >> "$GITHUB_OUTPUT"
+          echo "new_version=$NEW_VER" >> "$GITHUB_OUTPUT"
+
+          # Try to fetch release notes from GitHub
+          # Convert go module path to GitHub owner/repo
+          REPO_PATH=$(echo "$MODULE" | sed 's|^github.com/||' | cut -d'/' -f1,2)
+
+          RELEASE_NOTES=""
+          if [ "$REPO_PATH" != "$MODULE" ]; then
+            RELEASE_NOTES=$(gh api "repos/$REPO_PATH/releases/tags/v${NEW_VER}" --jq '.body' 2>/dev/null || \
+                            gh api "repos/$REPO_PATH/releases/tags/${NEW_VER}" --jq '.body' 2>/dev/null || \
+                            echo "No release notes found.")
+          fi
+
+          # Truncate if too long
+          RELEASE_NOTES=$(echo "$RELEASE_NOTES" | head -c 3000)
+
+          echo "release_notes<<EONOTES" >> "$GITHUB_OUTPUT"
+          echo "$RELEASE_NOTES" >> "$GITHUB_OUTPUT"
+          echo "EONOTES" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Claude risk analysis
+        id: claude
+        run: |
+          RESPONSE=$(cat <<'PYEOF' | python3 -
+          import json, os, urllib.request
+
+          module = os.environ["MODULE"]
+          old_ver = os.environ["OLD_VERSION"]
+          new_ver = os.environ["NEW_VERSION"]
+          diff = os.environ["DIFF"]
+          release_notes = os.environ["RELEASE_NOTES"]
+
+          prompt = f"""Analyze this dependency update for a Go project.
+
+          Dependency: {module}
+          Version change: {old_ver} → {new_ver}
+
+          Release notes:
+          {release_notes}
+
+          go.mod/go.sum diff:
+          {diff[:2000]}
+
+          Provide a concise analysis with:
+          1. **Risk level**: LOW / MEDIUM / HIGH
+          2. **Change type**: security fix, bug fix, feature, breaking change, or maintenance
+          3. **Summary**: 1-2 sentences on what changed and whether it's safe to merge
+          4. **Action**: recommend merge, review carefully, or hold
+
+          Keep the entire response under 200 words."""
+
+          body = json.dumps({
+              "model": "claude-haiku-4-5-20251001",
+              "max_tokens": 512,
+              "messages": [{"role": "user", "content": prompt}]
+          }).encode()
+
+          req = urllib.request.Request(
+              "https://api.anthropic.com/v1/messages",
+              data=body,
+              headers={
+                  "Content-Type": "application/json",
+                  "x-api-key": os.environ["ANTHROPIC_API_KEY"],
+                  "anthropic-version": "2023-06-01",
+              },
+          )
+
+          with urllib.request.urlopen(req) as resp:
+              result = json.loads(resp.read())
+              text = result["content"][0]["text"]
+              print(text)
+          PYEOF
+          )
+
+          echo "analysis<<EOANALYSIS" >> "$GITHUB_OUTPUT"
+          echo "$RESPONSE" >> "$GITHUB_OUTPUT"
+          echo "EOANALYSIS" >> "$GITHUB_OUTPUT"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODULE: ${{ steps.changelog.outputs.module }}
+          OLD_VERSION: ${{ steps.changelog.outputs.old_version }}
+          NEW_VERSION: ${{ steps.changelog.outputs.new_version }}
+          DIFF: ${{ steps.diff.outputs.diff }}
+          RELEASE_NOTES: ${{ steps.changelog.outputs.release_notes }}
+
+      - name: Post comment
+        run: |
+          {
+            echo "## 🤖 Claude Dependency Review"
+            echo ""
+            echo "$ANALYSIS"
+            echo ""
+            echo "---"
+            echo "*Automated analysis by Claude Haiku*"
+          } > /tmp/pr-comment-body.md
+
+          gh pr comment "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body-file /tmp/pr-comment-body.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ANALYSIS: ${{ steps.claude.outputs.analysis }}
