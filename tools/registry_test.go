@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -60,12 +61,23 @@ func TestRegistryExecute(t *testing.T) {
 	r := NewRegistry()
 	r.Register(&mockTool{name: "test", result: "hello"})
 
-	result := r.Execute(context.Background(), "test", json.RawMessage(`{}`))
+	result, err := r.Execute(context.Background(), "test", json.RawMessage(`{}`))
+	require.NoError(t, err)
 	assert.Equal(t, "hello", result)
 }
 
 func TestRegistryExecuteNotFound(t *testing.T) {
 	r := NewRegistry()
-	result := r.Execute(context.Background(), "missing", json.RawMessage(`{}`))
-	assert.Contains(t, result, "tool not found")
+	_, err := r.Execute(context.Background(), "missing", json.RawMessage(`{}`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tool not found")
+}
+
+func TestRegistryExecuteToolError(t *testing.T) {
+	r := NewRegistry()
+	r.Register(&mockTool{name: "fail", err: fmt.Errorf("something broke")})
+
+	_, err := r.Execute(context.Background(), "fail", json.RawMessage(`{}`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "something broke")
 }

@@ -74,7 +74,10 @@ func (p *Provider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResp
 			}
 			for _, tc := range m.ToolCalls {
 				var input any
-				_ = json.Unmarshal([]byte(tc.Arguments), &input)
+				if err := json.Unmarshal([]byte(tc.Arguments), &input); err != nil {
+					slog.Warn("failed to unmarshal tool call arguments", "tool", tc.Name, "error", err)
+					input = map[string]any{}
+				}
 				blocks = append(blocks, anthropic.NewToolUseBlock(tc.ID, input, tc.Name))
 			}
 			if len(blocks) > 0 {
@@ -156,7 +159,11 @@ func fromAnthropicMessage(msg *anthropic.Message) *llm.ChatResponse {
 		case "text":
 			resp.Content += block.Text
 		case "tool_use":
-			inputJSON, _ := json.Marshal(block.Input)
+			inputJSON, err := json.Marshal(block.Input)
+			if err != nil {
+				slog.Error("failed to marshal tool input", "tool", block.Name, "error", err)
+				inputJSON = []byte("{}")
+			}
 			resp.ToolCalls = append(resp.ToolCalls, llm.ToolCall{
 				ID:        block.ID,
 				Name:      block.Name,
@@ -165,11 +172,6 @@ func fromAnthropicMessage(msg *anthropic.Message) *llm.ChatResponse {
 		}
 	}
 
-	if len(resp.ToolCalls) > 0 {
-		resp.StopReason = "tool_use"
-	} else {
-		resp.StopReason = "end_turn"
-	}
-
+	resp.StopReason = llm.StopReasonFromToolCalls(resp.ToolCalls)
 	return resp
 }

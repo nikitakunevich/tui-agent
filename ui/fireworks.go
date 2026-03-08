@@ -154,42 +154,28 @@ func (m *fireworksModel) view(width, height int) string {
 	titleY := height / 2
 	titleX := (width - titleLen) / 2
 
+	renderCell := func(y, x int) string {
+		if grid[y][x] != ' ' {
+			return lipgloss.NewStyle().Foreground(colors[y][x]).Render(string(grid[y][x]))
+		}
+		return " "
+	}
+
 	var result string
 	for y := 0; y < height; y++ {
 		line := ""
-		for x := 0; x < width; x++ {
-			if y == titleY && x >= titleX && x < titleX+titleLen {
-				continue
-			}
-			if grid[y][x] != ' ' {
-				style := lipgloss.NewStyle().Foreground(colors[y][x])
-				// Fade based on life
-				line += style.Render(string(grid[y][x]))
-			} else {
-				line += " "
-			}
-		}
 		if y == titleY {
-			// Insert title
-			padding := ""
-			for i := 0; i < titleX; i++ {
-				if grid[y][i] != ' ' {
-					style := lipgloss.NewStyle().Foreground(colors[y][i])
-					padding += style.Render(string(grid[y][i]))
-				} else {
-					padding += " "
-				}
+			for x := 0; x < titleX; x++ {
+				line += renderCell(y, x)
 			}
-			afterTitle := ""
-			for i := titleX + titleLen; i < width; i++ {
-				if grid[y][i] != ' ' {
-					style := lipgloss.NewStyle().Foreground(colors[y][i])
-					afterTitle += style.Render(string(grid[y][i]))
-				} else {
-					afterTitle += " "
-				}
+			line += titleStyle.Render(title)
+			for x := titleX + titleLen; x < width; x++ {
+				line += renderCell(y, x)
 			}
-			line = padding + titleStyle.Render(title) + afterTitle
+		} else {
+			for x := 0; x < width; x++ {
+				line += renderCell(y, x)
+			}
 		}
 		result += line + "\n"
 	}

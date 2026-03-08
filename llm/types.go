@@ -44,3 +44,11 @@ type ChatResponse struct {
 	ToolCalls  []ToolCall // tool calls (if any)
 	StopReason string     // "end_turn" | "tool_use"
 }
+
+// StopReasonFromToolCalls returns "tool_use" if there are tool calls, "end_turn" otherwise.
+func StopReasonFromToolCalls(calls []ToolCall) string {
+	if len(calls) > 0 {
+		return "tool_use"
+	}
+	return "end_turn"
+}

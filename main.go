@@ -42,15 +42,7 @@ func main() {
 	var llmProvider llm.Provider
 	switch *provider {
 	case "openai":
-		apiKey := os.Getenv("OPENAI_API_KEY")
-		if apiKey == "" {
-			fmt.Fprintln(os.Stderr, "OPENAI_API_KEY is required (set in .env or environment)")
-			os.Exit(1)
-		}
-		modelName := *model
-		if modelName == "" {
-			modelName = envOrDefault("MODEL_NAME", "gpt-4o")
-		}
+		apiKey, modelName := resolveConfig("OPENAI_API_KEY", "gpt-4o", *model)
 		bURL := *baseURL
 		if bURL == "" {
 			bURL = os.Getenv("OPENAI_BASE_URL")
@@ -61,15 +53,7 @@ func main() {
 			Model:   modelName,
 		})
 	case "anthropic":
-		apiKey := os.Getenv("ANTHROPIC_API_KEY")
-		if apiKey == "" {
-			fmt.Fprintln(os.Stderr, "ANTHROPIC_API_KEY is required (set in .env or environment)")
-			os.Exit(1)
-		}
-		modelName := *model
-		if modelName == "" {
-			modelName = envOrDefault("MODEL_NAME", "claude-sonnet-4-20250514")
-		}
+		apiKey, modelName := resolveConfig("ANTHROPIC_API_KEY", "claude-sonnet-4-20250514", *model)
 		llmProvider = anthropicprov.New(anthropicprov.Config{
 			APIKey: apiKey,
 			Model:  modelName,
@@ -115,4 +99,18 @@ func envOrDefault(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// resolveConfig reads the API key from env (exits if missing) and resolves model name from flag/env/default.
+func resolveConfig(envKey, defaultModel, modelFlag string) (apiKey, model string) {
+	apiKey = os.Getenv(envKey)
+	if apiKey == "" {
+		fmt.Fprintf(os.Stderr, "%s is required (set in .env or environment)\n", envKey)
+		os.Exit(1)
+	}
+	model = modelFlag
+	if model == "" {
+		model = envOrDefault("MODEL_NAME", defaultModel)
+	}
+	return
 }

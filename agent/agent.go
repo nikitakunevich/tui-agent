@@ -83,7 +83,11 @@ func (a *Agent) Run(ctx context.Context, userMessage string) (string, error) {
 			if a.OnToolEvent != nil {
 				a.OnToolEvent(ToolEvent{Type: "start", Name: tc.Name, Arguments: tc.Arguments})
 			}
-			result := a.registry.Execute(ctx, tc.Name, json.RawMessage(tc.Arguments))
+			result, err := a.registry.Execute(ctx, tc.Name, json.RawMessage(tc.Arguments))
+			if err != nil {
+				slog.Error("tool execution failed", "name", tc.Name, "error", err)
+				result = err.Error()
+			}
 			if a.OnToolEvent != nil {
 				a.OnToolEvent(ToolEvent{Type: "end", Name: tc.Name, Arguments: tc.Arguments, Result: result})
 			}

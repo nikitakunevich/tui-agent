@@ -62,22 +62,18 @@ func (r *Registry) ToToolDefs() []llm.ToolDef {
 }
 
 // Execute runs a tool by name with the given input JSON.
-func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessage) string {
+func (r *Registry) Execute(ctx context.Context, name string, input json.RawMessage) (string, error) {
 	t, ok := r.tools[name]
 	if !ok {
-		errMsg := fmt.Sprintf("tool not found: %s", name)
-		slog.Error(errMsg)
-		return errMsg
+		return "", fmt.Errorf("tool not found: %s", name)
 	}
 
 	slog.Debug("executing tool", "name", name, "input", string(input))
 	result, err := t.Execute(ctx, input)
 	if err != nil {
-		errMsg := fmt.Sprintf("tool %s error: %v", name, err)
-		slog.Error(errMsg)
-		return errMsg
+		return "", fmt.Errorf("tool %s: %w", name, err)
 	}
 
 	slog.Debug("tool result", "name", name, "output_len", len(result))
-	return result
+	return result, nil
 }

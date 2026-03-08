@@ -109,7 +109,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.input.Reset()
 			m.waiting = true
 			m.updateViewport()
-			cmds = append(cmds, m.sendMessage(userMsg))
+			cmds = append(cmds, func() tea.Msg {
+				result, err := m.agent.Run(context.Background(), userMsg)
+				return agentResponseMsg{content: result, err: err}
+			})
 		}
 
 	case tea.WindowSizeMsg:
@@ -202,13 +205,6 @@ func (m *Model) View() string {
 	b.WriteString(m.input.View())
 
 	return b.String()
-}
-
-func (m *Model) sendMessage(msg string) tea.Cmd {
-	return func() tea.Msg {
-		result, err := m.agent.Run(context.Background(), msg)
-		return agentResponseMsg{content: result, err: err}
-	}
 }
 
 func (m *Model) updateViewport() {

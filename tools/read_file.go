@@ -29,33 +29,22 @@ func (r *ReadFileTool) Description() string {
 }
 
 func (r *ReadFileTool) Parameters() json.RawMessage {
-	return json.RawMessage(`{
-		"type": "object",
-		"properties": {
-			"path": {
-				"type": "string",
-				"description": "File path to read"
-			},
-			"offset": {
-				"type": "integer",
-				"description": "Line number to start from (1-based, default: 1)"
-			},
-			"limit": {
-				"type": "integer",
-				"description": "Maximum number of lines to read (default: all)"
-			}
-		},
-		"required": ["path"]
-	}`)
+	return ObjectSchema(map[string]Property{
+		"path":   {Type: "string", Description: "File path to read"},
+		"offset": {Type: "integer", Description: "Line number to start from (1-based, default: 1)"},
+		"limit":  {Type: "integer", Description: "Maximum number of lines to read (default: all)"},
+	}, "path")
 }
 
 func (r *ReadFileTool) Execute(_ context.Context, input json.RawMessage) (string, error) {
-	var params readFileInput
-	if err := json.Unmarshal(input, &params); err != nil {
-		return "", fmt.Errorf("invalid input: %w", err)
-	}
-	if params.Path == "" {
-		return "", fmt.Errorf("path is required")
+	params, err := ParseInput(input, func(p *readFileInput) error {
+		if p.Path == "" {
+			return fmt.Errorf("path is required")
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
 	}
 
 	data, err := os.ReadFile(params.Path)

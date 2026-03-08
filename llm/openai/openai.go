@@ -135,7 +135,6 @@ func fromOpenAIChoice(c openai.ChatCompletionChoice) *llm.ChatResponse {
 	}
 
 	if len(c.Message.ToolCalls) > 0 {
-		resp.StopReason = "tool_use"
 		resp.ToolCalls = make([]llm.ToolCall, len(c.Message.ToolCalls))
 		for i, tc := range c.Message.ToolCalls {
 			resp.ToolCalls[i] = llm.ToolCall{
@@ -144,9 +143,7 @@ func fromOpenAIChoice(c openai.ChatCompletionChoice) *llm.ChatResponse {
 				Arguments: tc.Function.Arguments,
 			}
 		}
-	} else {
-		resp.StopReason = "end_turn"
 	}
-
+	resp.StopReason = llm.StopReasonFromToolCalls(resp.ToolCalls)
 	return resp
 }

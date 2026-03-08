@@ -38,25 +38,20 @@ func (b *BashTool) Description() string {
 }
 
 func (b *BashTool) Parameters() json.RawMessage {
-	return json.RawMessage(`{
-		"type": "object",
-		"properties": {
-			"command": {
-				"type": "string",
-				"description": "The bash command to execute"
-			}
-		},
-		"required": ["command"]
-	}`)
+	return ObjectSchema(map[string]Property{
+		"command": {Type: "string", Description: "The bash command to execute"},
+	}, "command")
 }
 
 func (b *BashTool) Execute(ctx context.Context, input json.RawMessage) (string, error) {
-	var params bashInput
-	if err := json.Unmarshal(input, &params); err != nil {
-		return "", fmt.Errorf("invalid input: %w", err)
-	}
-	if params.Command == "" {
-		return "", fmt.Errorf("command is required")
+	params, err := ParseInput(input, func(p *bashInput) error {
+		if p.Command == "" {
+			return fmt.Errorf("command is required")
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
 	}
 
 	timeout := b.Timeout
@@ -76,7 +71,7 @@ func (b *BashTool) Execute(ctx context.Context, input json.RawMessage) (string, 
 	cmd.Stdout = &out
 	cmd.Stderr = &out
 
-	err := cmd.Run()
+	err = cmd.Run()
 
 	output := out.String()
 	if len(output) > maxOutputLen {
