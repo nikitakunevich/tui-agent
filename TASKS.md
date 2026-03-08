@@ -8,6 +8,9 @@
 - [x] TUI (Bubble Tea + fireworks + main wiring)
 - [x] .env file support for API keys
 - [x] Module documentation in docs/
+- [x] Show tool activity in chat (dimmed ▶/✓ messages via callback + p.Send)
+- [x] Add read_file tool
+- [x] Fix empty content null serialization for all OpenAI message types
 
 ## TODO
 
@@ -16,10 +19,6 @@ Theme: "works" → "trustworthy and inspectable"
 ### P1: Tool confirmation UI
 - [ ] Before running bash, show command and ask approve/deny
 - Highest leverage for trust and safety
-
-### P2: Show tool activity in chat
-- [ ] "Running bash: ls -la" messages in chat
-- [ ] Collapsible or dimmed tool output
 
 ### P3: Refactor agent state/session model
 - [ ] Avoid hidden mutable conversation state in `Agent`
@@ -34,6 +33,6 @@ Theme: "works" → "trustworthy and inspectable"
 - [ ] Sort tool names in `Registry.List()` / `ToToolDefs()` for deterministic behavior
 - [ ] Show current provider/model in TUI title/status
 - [ ] Add `/clear` or `/reset` command
-- [ ] Add file read tool before file write tool
+- [x] Add file read tool before file write tool
 - [ ] Consider limiting bash environment / cwd explicitly
 - [ ] More tools (HTTP, etc.)
