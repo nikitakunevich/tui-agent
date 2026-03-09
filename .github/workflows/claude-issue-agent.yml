@@ -1,0 +1,32 @@
+name: Claude Issue Agent
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    if: |
+      github.event.issue.user.login == 'nikitakunevich'
+      && contains(github.event.issue.labels.*.name, 'claude')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Implement the changes requested in this GitHub issue.
+            Create a new branch, write the code, and commit.
+
+            Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+
+            ${{ github.event.issue.body }}
+          timeout_minutes: 30
