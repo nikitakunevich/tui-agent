@@ -72,3 +72,23 @@ func TestFromAnthropicMessage_MixedContent(t *testing.T) {
 	assert.Equal(t, "tool_use", got.StopReason)
 	assert.Len(t, got.ToolCalls, 1)
 }
+
+func TestFromAnthropicMessage_InvalidToolInputFallsBackToEmptyObject(t *testing.T) {
+	msg := &a.Message{
+		Content: []a.ContentBlockUnion{
+			{
+				Type:  "tool_use",
+				ID:    "toolu_789",
+				Name:  "bash",
+				Input: map[string]any{"bad": make(chan int)},
+			},
+		},
+	}
+
+	got := fromAnthropicMessage(msg)
+	assert.Equal(t, "tool_use", got.StopReason)
+	require.Len(t, got.ToolCalls, 1)
+	assert.Equal(t, "toolu_789", got.ToolCalls[0].ID)
+	assert.Equal(t, "bash", got.ToolCalls[0].Name)
+	assert.Equal(t, "{}", got.ToolCalls[0].Arguments)
+}

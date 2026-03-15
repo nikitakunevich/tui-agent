@@ -38,6 +38,15 @@ func (e *echoTool) Execute(_ context.Context, input json.RawMessage) (string, er
 	return params.Text, nil
 }
 
+type failingTool struct{}
+
+func (f *failingTool) Name() string               { return "fail" }
+func (f *failingTool) Description() string         { return "failing tool" }
+func (f *failingTool) Parameters() json.RawMessage { return json.RawMessage(`{"type":"object","properties":{"text":{"type":"string"}}}`) }
+func (f *failingTool) Execute(_ context.Context, _ json.RawMessage) (string, error) {
+	return "", assert.AnError
+}
+
 func TestAgentSingleTextResponse(t *testing.T) {
 	provider := &mockProvider{
 		responses: []*llm.ChatResponse{
@@ -226,4 +235,42 @@ func TestAgentWithSystemPrompt(t *testing.T) {
 	result, err := agent.Run(context.Background(), "hello")
 	require.NoError(t, err)
 	assert.Equal(t, "I am helpful", result)
+}
+
+func TestAgentToolErrorBecomesToolResult(t *testing.T) {
+	var requests []llm.ChatRequest
+	provider := &mockProvider{
+		responses: []*llm.ChatResponse{
+			{
+				StopReason: "tool_use",
+				ToolCalls: []llm.ToolCall{
+					{ID: "call_1", Name: "fail", Arguments: `{"text":"x"}`},
+				},
+			},
+			{Content: "handled", StopReason: "end_turn"},
+		},
+	}
+	providerWithCapture := llm.Provider(providerFunc(func(_ context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
+		requests = append(requests, req)
+		return provider.Chat(context.Background(), req)
+	}))
+
+	registry := tools.NewRegistry()
+	registry.Register(&failingTool{})
+	agent := New(providerWithCapture, registry, "")
+
+	result, err := agent.Run(context.Background(), "run failing tool")
+	require.NoError(t, err)
+	assert.Equal(t, "handled", result)
+	require.Len(t, requests, 2)
+	require.Len(t, requests[1].Messages, 3)
+	assert.Equal(t, llm.RoleTool, requests[1].Messages[2].Role)
+	assert.Equal(t, "call_1", requests[1].Messages[2].ToolCallID)
+	assert.Equal(t, assert.AnError.Error(), requests[1].Messages[2].Content)
+}
+
+type providerFunc func(context.Context, llm.ChatRequest) (*llm.ChatResponse, error)
+
+func (f providerFunc) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
+	return f(ctx, req)
 }
