@@ -1,0 +1,30 @@
+name: Codex Issue Agent
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    if: |
+      github.event.issue.user.login == 'nikitakunevich'
+      && contains(github.event.issue.labels.*.name, 'codex')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: |
+            Implement the changes requested in this GitHub issue.
+
+            Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+
+            ${{ github.event.issue.body }}
